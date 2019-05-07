@@ -1,48 +1,12 @@
 ﻿$BackupPath          = "D:\Backup\MySQL"
 $MySqlDumpPath       = "C:\Program Files\MySQL\MySQL Server 5.7\bin\mysqldump.exe"
 $DaysToKeep          = 8
+$LogFilePath         = "D:\Apps\Logs"
 
+$LogFileName         = [System.IO.Path]::Combine($LogFilePath, "BackupMySql-$((Get-Date).ToString("yyyy-MM-ddTHH-mm-ss")).log")
 $MySqlDumpConfigPath = [System.IO.Path]::Combine($PSScriptRoot, "mysqldump.cnf")
 $MySqlDataDllPath    = [System.IO.Path]::Combine($PSScriptRoot, "MySql.Data.dll")
 $ProtobufDllPath     = [System.IO.Path]::Combine($PSScriptRoot, "Google.Protobuf.dll")
-
-#
-# Validate Parameters
-#
-if (!(Test-Path $BackupPath))
-{
-    Write-Error "The specified backup path '$backupPath' doesn't exist."
-    exit 1
-}
-
-if (!(Test-Path $MySqlDumpPath))
-{
-    Write-Error "The specified path '$MySqlDumpPath' to mysqldump.exe doesn't exist."
-    exit 2
-}
-
-if (!(Test-Path $MySqlDumpConfigPath))
-{
-    Write-Error "mysqldump.cnf doesn't exist at '$MySqlDumpConfigPath'."
-    exit 4
-}
-
-if (!(Test-Path $MySqlDataDllPath))
-{
-    Write-Error "MySql.Data.dll doesn't exist at '$MySqlDataDllPath'."
-    exit 8
-}
-
-if (!(Test-Path $ProtobufDllPath))
-{
-    Write-Error "Google.Protobuf.dll doesn't exist at '$ProtobufDllPath'."
-    exit 16
-}
-
-Add-Type -Assembly 'System.IO.Compression'
-Add-Type -Assembly 'System.IO.Compression.FileSystem'
-Add-Type -Path $ProtobufDllPath
-Add-Type -Path $MySqlDataDllPath
 
 #
 # Functions
@@ -94,16 +58,51 @@ function Get-IniFile
     return $ini  
 }
 
-function Log
+function Write-Log
 {
-    Param ([parameter(Mandatory = $true)][string] $message)
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [string] $Message,
 
-    Write-Host "$((Get-Date).ToString("yyyy-MM-dd HH:mm:ss")) | $message"
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Error", "Warn", "Info")]
+        [string]$Level = "Info"
+    )
+
+    $FormattedMessage = "$((Get-Date).ToString("yyyy-MM-dd HH:mm:ss")) | $($Level.ToUpper()) | $Message"
+
+    if (!(Test-Path $LogFileName))
+    {
+        New-Item -ItemType File -Force -Path "$LogFileName" | Out-Null
+    }
+
+    $FormattedMessage | Out-File -FilePath $LogFileName -Append
+
+    switch ($Level)
+    {
+        'Error'
+        {
+            Write-Error $FormattedMessage
+            exit 1
+        }
+
+        'Warn'
+        {
+            Write-Warning $FormattedMessage
+        }
+
+        'Info'
+        {
+            Write-Host $FormattedMessage
+        }
+    }
 }
 
 function Get-Databases
 {
-    Log "Getting list of databases"
+    Write-Log "Getting list of databases"
     [string[]] $databases = @()
 
     try
@@ -141,14 +140,18 @@ function Get-Databases
 
 function Get-BackupFileName
 {
-    Param ([parameter(Mandatory = $true)][string] $databaseName)
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [string] $databaseName
+    )
 
     $databaseBackupPath = [System.IO.Path]::Combine($BackupPath, $databaseName)
     $backupFileName = [System.IO.Path]::Combine($databaseBackupPath, "$databaseName-$((Get-Date).ToString("yyyy-MM-ddTHH-mm-ss")).sql")
     
-    if(!(Test-Path $databaseBackupPath))
+    if (!(Test-Path $databaseBackupPath))
     {
-        Log "Creating directory '$databaseBackupPath'"
+        Write-Log "Creating directory '$databaseBackupPath'"
         # Pipe output to Out-Null otherwise the path created is prepended to the $backupFileName
         # which causes errors for the caller
         New-Item -ItemType Directory -Force -Path "$databaseBackupPath" | Out-Null
@@ -159,7 +162,13 @@ function Get-BackupFileName
 
 function Compress-File
 {
-    Param ([parameter(Mandatory = $true)][string] $fileName)
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [string] $fileName
+    )
+
+    Write-Log "Compressing '$fileName'"
 
     $zipFileName = [System.IO.Path]::ChangeExtension($fileName, ".zip")
     $fileNameWithoutPath = [System.IO.Path]::GetFileName($fileName)
@@ -181,10 +190,43 @@ function Compress-File
 function Remove-OldBackups
 {
     $removeBackupsOlderThanDate = (Get-Date).AddDays(-$DaysToKeep)
-    Log "Removing backups older than $removeBackupsOlderThanDate"
+    Write-Log "Removing backups older than $removeBackupsOlderThanDate"
 
     Get-ChildItem $BackupPath -Recurse | Where-Object { $_.LastWriteTime -lt $removeBackupsOlderThanDate } | Remove-Item
 }
+
+#
+# Validate Parameters
+#
+if (!(Test-Path $BackupPath))
+{
+    Write-Log "The specified backup path '$backupPath' doesn't exist." -Level Error
+}
+
+if (!(Test-Path $MySqlDumpPath))
+{
+    Write-Log "The specified path '$MySqlDumpPath' to mysqldump.exe doesn't exist." -Level Error
+}
+
+if (!(Test-Path $MySqlDumpConfigPath))
+{
+    Write-Log "mysqldump.cnf doesn't exist at '$MySqlDumpConfigPath'." -Level Error
+}
+
+if (!(Test-Path $MySqlDataDllPath))
+{
+    Write-Log "MySql.Data.dll doesn't exist at '$MySqlDataDllPath'." -Level Error
+}
+
+if (!(Test-Path $ProtobufDllPath))
+{
+    Write-Log "Google.Protobuf.dll doesn't exist at '$ProtobufDllPath'." -Level Error
+}
+
+Add-Type -Assembly 'System.IO.Compression'
+Add-Type -Assembly 'System.IO.Compression.FileSystem'
+Add-Type -Path $ProtobufDllPath
+Add-Type -Path $MySqlDataDllPath
 
 #
 # Main
@@ -193,7 +235,7 @@ $Databases = Get-Databases
 
 foreach ($databaseName in $Databases)
 {
-    Log "Backing up $databaseName"
+    Write-Log "Backing up $databaseName"
 
     $backupFileName = Get-BackupFileName -databaseName $databaseName
     
@@ -201,29 +243,26 @@ foreach ($databaseName in $Databases)
 
     if (!$?)
     {
-        Log "Failed to backup $databaseName"
-        exit 32
+        Write-Log "Failed to backup $databaseName" -Level Error
     }
 
     $compressedBackupFileName = Compress-File -fileName $backupFileName
 
     if (!$?)
     {
-        Log "Failed to compress backup '$backupFileName'"
-        exit 64
+        Write-Log "Failed to compress backup '$backupFileName'" -Level Error
     }
 
     Remove-Item -Path $backupFileName
 
-    Log "Finished backing up $databaseName to '$compressedBackupFileName'"
+    Write-Log "Finished backing up $databaseName to '$compressedBackupFileName'"
 }
 
 Remove-OldBackups
 
 if (!$?)
 {
-    Log "Failed to remove old backups"
-    exit 128
+    Write-Log "Failed to remove old backups" -Level Error
 }
 
-Log "Finished backing up all databases"
+Write-Log "Finished backing up all databases"
