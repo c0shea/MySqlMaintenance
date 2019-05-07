@@ -103,39 +103,39 @@ function Write-Log
 function Get-Databases
 {
     Write-Log "Getting list of databases"
-    [string[]] $databases = @()
+    [string[]] $Databases = @()
 
     try
     {
-        $iniFile = Get-IniFile "$MySqlDumpConfigPath"
+        $IniFile = Get-IniFile "$MySqlDumpConfigPath"
 
-        $connectionStringBuilder = New-Object -TypeName MySql.Data.MySqlClient.MySqlConnectionStringBuilder
-        $connectionStringBuilder.Server = "localhost"
-        $connectionStringBuilder.UserID = $iniFile.mysqldump.user
-        $connectionStringBuilder.Password = $iniFile.mysqldump.password
+        $ConnectionStringBuilder = New-Object -TypeName MySql.Data.MySqlClient.MySqlConnectionStringBuilder
+        $ConnectionStringBuilder.Server = "localhost"
+        $ConnectionStringBuilder.UserID = $IniFile.mysqldump.user
+        $ConnectionStringBuilder.Password = $IniFile.mysqldump.password
 
-        $db = New-Object -TypeName MySql.Data.MySqlClient.MySqlConnection
-        $db.ConnectionString = $connectionStringBuilder.ToString()
-        $db.Open()
+        $Db = New-Object -TypeName MySql.Data.MySqlClient.MySqlConnection
+        $Db.ConnectionString = $ConnectionStringBuilder.ToString()
+        $Db.Open()
 
-        $query = New-Object -TypeName MySql.Data.MySqlClient.MySqlCommand
-        $query.Connection = $db
-        $query.CommandText = "select schema_name from information_schema.schemata where schema_name not in ('performance_schema', 'information_schema') order by schema_name;"
+        $Query = New-Object -TypeName MySql.Data.MySqlClient.MySqlCommand
+        $Query.Connection = $Db
+        $Query.CommandText = "select schema_name from information_schema.schemata where schema_name not in ('performance_schema', 'information_schema') order by schema_name;"
     
-        $reader = $query.ExecuteReader()
-        while ($reader.Read())
+        $Reader = $Query.ExecuteReader()
+        while ($Reader.Read())
         {
-            $Databases += $reader["schema_name"]
+            $Databases += $Reader["schema_name"]
         }
     }
     finally
     {
-        $reader.Dispose()
-        $query.Dispose()
-        $db.Dispose()
+        $Reader.Dispose()
+        $Query.Dispose()
+        $Db.Dispose()
     }
 
-    return $databases
+    return $Databases
 }
 
 function Get-BackupFileName
@@ -143,21 +143,21 @@ function Get-BackupFileName
     Param
     (
         [Parameter(Mandatory = $true)]
-        [string] $databaseName
+        [string] $DatabaseName
     )
 
-    $databaseBackupPath = [System.IO.Path]::Combine($BackupPath, $databaseName)
-    $backupFileName = [System.IO.Path]::Combine($databaseBackupPath, "$databaseName-$((Get-Date).ToString("yyyy-MM-ddTHH-mm-ss")).sql")
+    $DatabaseBackupPath = [System.IO.Path]::Combine($BackupPath, $DatabaseName)
+    $BackupFileName = [System.IO.Path]::Combine($DatabaseBackupPath, "$DatabaseName-$((Get-Date).ToString("yyyy-MM-ddTHH-mm-ss")).sql")
     
-    if (!(Test-Path $databaseBackupPath))
+    if (!(Test-Path $DatabaseBackupPath))
     {
-        Write-Log "Creating directory '$databaseBackupPath'"
+        Write-Log "Creating directory '$DatabaseBackupPath'"
         # Pipe output to Out-Null otherwise the path created is prepended to the $backupFileName
         # which causes errors for the caller
-        New-Item -ItemType Directory -Force -Path "$databaseBackupPath" | Out-Null
+        New-Item -ItemType Directory -Force -Path "$DatabaseBackupPath" | Out-Null
     }
     
-    return $backupFileName
+    return $BackupFileName
 }
 
 function Compress-File
@@ -165,34 +165,34 @@ function Compress-File
     Param
     (
         [Parameter(Mandatory = $true)]
-        [string] $fileName
+        [string] $FileName
     )
 
-    Write-Log "Compressing '$fileName'"
+    Write-Log "Compressing '$FileName'"
 
-    $zipFileName = [System.IO.Path]::ChangeExtension($fileName, ".zip")
-    $fileNameWithoutPath = [System.IO.Path]::GetFileName($fileName)
+    $ZipFileName = [System.IO.Path]::ChangeExtension($FileName, ".zip")
+    $FileNameWithoutPath = [System.IO.Path]::GetFileName($FileName)
 
     try
     {
-        [System.IO.Compression.ZipArchive] $zipArchive = [System.IO.Compression.ZipFile]::Open($zipFileName, ([System.IO.Compression.ZipArchiveMode]::Create))
+        [System.IO.Compression.ZipArchive] $ZipArchive = [System.IO.Compression.ZipFile]::Open($ZipFileName, ([System.IO.Compression.ZipArchiveMode]::Create))
         # Assign the output to $null to suppress writing the ZipArchive to the console
-        $null = [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipArchive, $fileName, $fileNameWithoutPath)
+        $null = [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($ZipArchive, $FileName, $FileNameWithoutPath)
     }
     finally
     {
-        $zipArchive.Dispose()
+        $ZipArchive.Dispose()
     }
 
-    return $zipFileName
+    return $ZipFileName
 }
 
 function Remove-OldBackups
 {
-    $removeBackupsOlderThanDate = (Get-Date).AddDays(-$DaysToKeep)
-    Write-Log "Removing backups older than $removeBackupsOlderThanDate"
+    $RemoveBackupsOlderThanDate = (Get-Date).AddDays(-$DaysToKeep)
+    Write-Log "Removing backups older than $RemoveBackupsOlderThanDate"
 
-    Get-ChildItem $BackupPath -Recurse | Where-Object { $_.LastWriteTime -lt $removeBackupsOlderThanDate } | Remove-Item
+    Get-ChildItem $BackupPath -Recurse | Where-Object { $_.LastWriteTime -lt $RemoveBackupsOlderThanDate } | Remove-Item
 }
 
 #
@@ -233,29 +233,29 @@ Add-Type -Path $MySqlDataDllPath
 #
 $Databases = Get-Databases
 
-foreach ($databaseName in $Databases)
+foreach ($DatabaseName in $Databases)
 {
-    Write-Log "Backing up $databaseName"
+    Write-Log "Backing up $DatabaseName"
 
-    $backupFileName = Get-BackupFileName -databaseName $databaseName
+    $BackupFileName = Get-BackupFileName -databaseName $DatabaseName
     
-    & "$MySqlDumpPath" --defaults-file="$MySqlDumpConfigPath" --databases $databaseName --result-file="$backupFileName" --routines --triggers --events
+    & "$MySqlDumpPath" --defaults-file="$MySqlDumpConfigPath" --databases $DatabaseName --result-file="$BackupFileName" --routines --triggers --events
 
     if (!$?)
     {
-        Write-Log "Failed to backup $databaseName" -Level Error
+        Write-Log "Failed to backup $DatabaseName" -Level Error
     }
 
-    $compressedBackupFileName = Compress-File -fileName $backupFileName
+    $CompressedBackupFileName = Compress-File -fileName $BackupFileName
 
     if (!$?)
     {
-        Write-Log "Failed to compress backup '$backupFileName'" -Level Error
+        Write-Log "Failed to compress backup '$BackupFileName'" -Level Error
     }
 
-    Remove-Item -Path $backupFileName
+    Remove-Item -Path $BackupFileName
 
-    Write-Log "Finished backing up $databaseName to '$compressedBackupFileName'"
+    Write-Log "Finished backing up $DatabaseName to '$CompressedBackupFileName'"
 }
 
 Remove-OldBackups
