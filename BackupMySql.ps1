@@ -1,5 +1,5 @@
 ﻿$BackupPath          = "D:\Backup\MySQL"
-$MySqlDumpPath       = "C:\Program Files\MySQL\MySQL Server 5.7\bin\mysqldump.exe"
+$MySqlDumpPath       = "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
 $DaysToKeep          = 8
 $LogFilePath         = "D:\Apps\Logs"
 
