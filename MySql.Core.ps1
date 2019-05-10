@@ -1,3 +1,7 @@
+#
+# This script contains core code shared across the other maintenance scripts
+#
+
 # Begin Configuration
 $MySqlBinPath        = "C:\Program Files\MySQL\MySQL Server 8.0\bin"
 $LogFilePath         = "D:\Apps\Logs"
@@ -104,6 +108,18 @@ function Write-Log
             Write-Host $FormattedMessage
         }
     }
+}
+
+function Get-LogFileName
+{
+    [CmdletBinding()]
+    Param
+    (
+        [Parameter(Mandatory = $true)]
+        [string] $LogName
+    )
+
+    return [System.IO.Path]::Combine($LogFilePath, "$LogName-$((Get-Date).ToString("yyyy-MM-ddTHH-mm-ss")).log")
 }
 
 function Get-Databases
