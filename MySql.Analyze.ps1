@@ -27,7 +27,7 @@ foreach ($DatabaseName in $Databases)
 {
     Write-Log "Analyzing $DatabaseName"
 
-    & "$MySqlCheckPath" --defaults-file="$MySqlConfigPath" --databases $DatabaseName --analyze
+    & "$MySqlCheckPath" --defaults-file="$MySqlConfigPath" --databases $DatabaseName --analyze | Out-File $LogFileName -Append
 
     if (!$?)
     {

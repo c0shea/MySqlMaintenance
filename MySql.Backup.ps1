@@ -101,7 +101,7 @@ foreach ($DatabaseName in $Databases)
 
     $BackupFileName = Get-BackupFileName -databaseName $DatabaseName
     
-    & "$MySqlDumpPath" --defaults-file="$MySqlConfigPath" --databases $DatabaseName --result-file="$BackupFileName" --routines --triggers --events
+    & "$MySqlDumpPath" --defaults-file="$MySqlConfigPath" --databases $DatabaseName --result-file="$BackupFileName" --routines --triggers --events | Out-File $LogFileName -Append
 
     if (!$?)
     {
