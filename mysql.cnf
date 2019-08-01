@@ -1,0 +1,11 @@
+[databaseenumeration]
+user = maintenance
+password = yourpasswordhere
+
+[mysqldump]
+user = maintenance
+password = yourpasswordhere
+
+[mysqlcheck]
+user = maintenance
+password = yourpasswordhere
